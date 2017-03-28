@@ -263,13 +263,13 @@ read_failed:
                     tcp_header->SrcPort = htons(port);
                     ip_header->DstAddr = ip_header->SrcAddr;
                     ip_header->SrcAddr = dst_addr;
-					// ip_header->SrcAddr = htonl(INADDR_LOOPBACK);
+			        // ip_header->SrcAddr = htonl(INADDR_LOOPBACK);
                     addr.Direction = WINDIVERT_DIRECTION_INBOUND;
                 }
                 else if (tcp_header->DstPort == htons(alt_port))
                 {
                     // Redirect: ALT ---> PORT
-					message("outbount ALT ---> PORT");
+				    message("outbount ALT ---> PORT");
                     tcp_header->DstPort = htons(port);
                 }
                 break;
@@ -278,7 +278,7 @@ read_failed:
                 if (tcp_header->SrcPort == htons(port))
                 {
                     // Redirect: PORT ---> ALT
-					message("outbount PORT ---> ALT");
+				    message("outbount PORT ---> ALT");
                     tcp_header->SrcPort = htons(alt_port);
                 }
                 break;
@@ -343,7 +343,7 @@ static DWORD proxy(LPVOID arg)
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_port = htons(proxy_port);
-	addr.sin_addr.S_un.S_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_addr.S_un.S_addr = htonl(INADDR_LOOPBACK);
 
     if (bind(s, (SOCKADDR *)&addr, sizeof(addr)) == SOCKET_ERROR)
     {
