@@ -98,6 +98,29 @@ static void message(const char *msg, ...)
 #define warning(msg, ...)                       \
     message("warning: " msg, ## __VA_ARGS__)
 
+
+void dumpPacket2(void * packet, UINT packetLen)
+{
+    PWINDIVERT_IPHDR ip_header = NULL;
+    PWINDIVERT_TCPHDR tcp_header = NULL;
+    PVOID data = NULL;
+    UINT data_len;
+    WinDivertHelperParsePacket(packet, packetLen, &ip_header, NULL, NULL, NULL, &tcp_header, NULL, &data, &data_len);
+
+    if (ip_header != NULL && tcp_header != NULL) {
+        UINT8 *src_addr = (UINT8 *)&ip_header->SrcAddr;
+        UINT8 *dst_addr = (UINT8 *)&ip_header->DstAddr;
+
+        message("[%u.%u.%u.%u:%u -> %u.%u.%u.%u:%u, seqnum: %u, asknum: %u, ask %u psh %u rst %u syn %u fin %u]\n",
+            src_addr[0], src_addr[1], src_addr[2], src_addr[3], ntohs(tcp_header->SrcPort),
+            dst_addr[0], dst_addr[1], dst_addr[2], dst_addr[3], ntohs(tcp_header->DstPort),
+            ntohl(tcp_header->SeqNum), ntohl(tcp_header->AckNum),
+            tcp_header->Ack, tcp_header->Psh, tcp_header->Rst, tcp_header->Syn,
+            tcp_header->Fin);
+    }
+}
+
+
 /*
  * Cleanup completed I/O requests.
  */
@@ -247,18 +270,21 @@ read_failed:
                 if (tcp_header->DstPort == htons(port))
                 {
                     // Reflect: PORT ---> PROXY
-					message("outbound PORT ---> PROXY");
+					message("captured outbound PORT ---> PROXY");
+                    dumpPacket2(packet, packet_len);
                     UINT32 dst_addr = ip_header->DstAddr;
                     tcp_header->DstPort = htons(proxy_port);
                     // ip_header->DstAddr = ip_header->SrcAddr;
 					ip_header->DstAddr = htonl(INADDR_LOOPBACK);
                     ip_header->SrcAddr = dst_addr;
+                    
                     addr.Direction = WINDIVERT_DIRECTION_INBOUND;
                 }
                 else if (tcp_header->SrcPort == htons(proxy_port))
                 {
                     // Reflect: PROXY ---> PORT
 					message("outbound PROXY ---> PORT");
+                    dumpPacket2(packet, packet_len);
 					UINT32 dst_addr = ip_header->DstAddr;
                     tcp_header->SrcPort = htons(port);
                     ip_header->DstAddr = ip_header->SrcAddr;
@@ -270,6 +296,7 @@ read_failed:
                 {
                     // Redirect: ALT ---> PORT
 				    message("outbount ALT ---> PORT");
+                    dumpPacket2(packet, packet_len);
                     tcp_header->DstPort = htons(port);
                 }
                 break;
@@ -291,6 +318,9 @@ read_failed:
             error("failed to allocate memory");
         }
         memset(poverlapped, 0, sizeof(OVERLAPPED));
+        message("Sending:");
+        dumpPacket2(packet, packet_len);
+
         if (WinDivertSendEx(handle, packet, packet_len, 0, &addr, NULL,
                 poverlapped))
         {
